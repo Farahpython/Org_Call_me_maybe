@@ -70,15 +70,20 @@ def response_arguments(prompt: Prompt, model: Small_LLM_Model,
         # determines whether an option was chosen
         value = None
         if options:
-            second_prompt = second_prompt_builder(prompt, function, name,
-                                           parameter_type, options)
+            second_prompt = second_prompt_builder(prompt, function, name, options)
+            print(second_prompt)
+"""
             # returns an int
             choice = model_picks(second_prompt, model, vocab, len(options) + 1)
             if choice <= len(options):
                 value = options[choice - 1]
             if value is None:
-                third_prompt = value_prompt_builder(user_prompt, function, name,
+                third_prompt = third_prompt_builder(prompt, function, name,
                                           parameter_type)
+            
+            
+    return argument
+"""
 
 def create_dynamic_model(f: FunctionDefinition) -> Type[BaseModel]:
     """
@@ -112,16 +117,14 @@ def main() -> None:
                     candidates_by_parameter[name] = candidates
                 arguments = response_arguments(prompt, model, f,
                                        vocab, candidates_by_parameter)
-                """
-                chosen_arguments = response_arguments(second_input_prompt, model,
-                    f, vocab, candidates_by_parameter)
+    """            
                 print(chosen_arguments)
                 ClassCreated = create_dynamic_model(f)
                 try:
                     validated_arguements = ClassCreated(**chosen_arguments)
                 except ValidationError as e:
                     print("Invalid arguements: ", e)
-                """
+    """
 
 if __name__ == "__main__":
     main()

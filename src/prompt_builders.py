@@ -17,8 +17,7 @@ def prompt_builder(prompt: Prompt, defs: list[FunctionDefinition]) -> str:
 
 
 def second_prompt_builder(prompt: Prompt, f: FunctionDefinition,
-                          parameter: str, candidates_of_each_parameter:
-                          dict[str, list[str]], options: list[str]) -> str:
+                          parameter: str, options: list[str]) -> str:
     """Numbered choice prompt; the last number is 'none of the above'."""
     text = f"User request: {prompt.prompt}\n"
     text += f"Function: {f.name} - {f.description}\n"
