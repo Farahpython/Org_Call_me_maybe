@@ -1,6 +1,7 @@
 import re
 import sys
 import json
+import argparse
 from typing import Type
 from pydantic import BaseModel, ValidationError, create_model
 from llm_sdk import Small_LLM_Model
@@ -16,6 +17,17 @@ type_mapping = {
     "string": str,
     "boolean": bool
 }
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser()
+    p.add_argument("--functions_definition",
+                   default="data/input/functions_definition.json")
+    p.add_argument("--input",
+                   default="data/input/function_calling_tests.json")
+    p.add_argument("--output",
+                   default="data/output/function_calling_results.json")
+    return p.parse_args()
 
 
 def build_vocab(model: Small_LLM_Model) -> list[str]:
@@ -72,7 +84,6 @@ def response_arguments(prompt: Prompt, model: Small_LLM_Model,
         if options:
             second_prompt = second_prompt_builder(prompt, function, name, options)
             print(second_prompt)
-"""
             # returns an int
             choice = model_picks(second_prompt, model, vocab, len(options) + 1)
             if choice <= len(options):
@@ -80,10 +91,9 @@ def response_arguments(prompt: Prompt, model: Small_LLM_Model,
             if value is None:
                 third_prompt = third_prompt_builder(prompt, function, name,
                                           parameter_type)
-            
-            
+              
     return argument
-"""
+
 
 def create_dynamic_model(f: FunctionDefinition) -> Type[BaseModel]:
     """
@@ -99,8 +109,9 @@ def create_dynamic_model(f: FunctionDefinition) -> Type[BaseModel]:
 
 
 def main() -> None:
-    functions = load_function_defs("data/input/functions_definition.json")
-    prompts = load_prompt("data/input/function_calling_tests.json")
+    args = parse_args()
+    functions = load_function_defs(args.functions_definition)
+    prompts = load_prompt(args.input)
     model = Small_LLM_Model()
     vocab = build_vocab(model)
     valid_defs = []

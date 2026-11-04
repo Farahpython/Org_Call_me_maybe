@@ -1,4 +1,6 @@
 import json
+import sys
+from pydantic import ValidationError
 from .classes import FunctionDefinition, Prompt
 
 def load_function_defs(file: str) -> list[FunctionDefinition]:
