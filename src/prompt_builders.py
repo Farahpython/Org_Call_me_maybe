@@ -1,6 +1,52 @@
 import json
 from .classes import Prompt, FunctionDefinition
 
+INSTRUCTIONS = (
+    "Fill in the arguments of a function call from the user's request.\n"
+    "Rules:\n"
+    "- Copy names, words and numbers exactly as written in the request.\n"
+    "- If a parameter is a regex or pattern, write a regular expression "
+    "that matches what the request describes. "
+    "Do not copy the matched text itself.\n"
+    "- If a parameter is the replacement, write only the replacement text, "
+    "with no extra spaces.\n"
+    "- A value starts right after the opening quote.\n\n"
+)
+
+EXAMPLES = (
+    "Function: fn_repeat_text\n"
+    "Description: Repeat a text several times.\n"
+    "Parameter 1: text (string)\n"
+    "Parameter 2: times (integer)\n"
+    'Request: Repeat the word "hi" 3 times\n'
+    'Arguments: {"text": "hi", "times": 3}\n'
+    "\n"
+    "Function: fn_replace_text\n"
+    "Description: Replace everything matching a pattern in a text.\n"
+    "Parameter 1: text (string)\n"
+    "Parameter 2: pattern (string)\n"
+    "Parameter 3: new (string)\n"
+    "Request: Replace all capital letters in 'aBcD' with dashes\n"
+    'Arguments: {"text": "aBcD", "pattern": "[A-Z]", "new": "-"}\n'
+    "\n"
+    "Function: fn_replace_text\n"
+    "Description: Replace everything matching a pattern in a text.\n"
+    "Parameter 1: text (string)\n"
+    "Parameter 2: pattern (string)\n"
+    "Parameter 3: new (string)\n"
+    "Request: Replace the letters a and b in 'cab' with underscores\n"
+    'Arguments: {"text": "cab", "pattern": "[ab]", "new": "_"}\n'
+    "\n"
+    "Function: fn_replace_text\n"
+    "Description: Replace everything matching a pattern in a text.\n"
+    "Parameter 1: text (string)\n"
+    "Parameter 2: pattern (string)\n"
+    "Parameter 3: new (string)\n"
+    "Request: Replace the letters x and z in 'zebra fox' with underscores\n"
+    'Arguments: {"text": "zebra fox", "pattern": "[xz]", "new": "_"}\n'
+    "\n"
+)
+
 
 def prompt_builder(prompt: Prompt, defs: list[FunctionDefinition]) -> str:
     """
@@ -16,30 +62,13 @@ def prompt_builder(prompt: Prompt, defs: list[FunctionDefinition]) -> str:
     return model_prompt
 
 
-def second_prompt_builder(prompt: Prompt, f: FunctionDefinition,
-                          parameter: str, options: list[str]) -> str:
-    """Numbered choice prompt; the last number is 'none of the above'."""
-    text = f"User request: {prompt.prompt}\n"
-    text += f"Function: {f.name} - {f.description}\n"
-    for name, details in f.parameters.items():
-        text += f"- {name}: {details['type']}\n"
-    text += f"Parameter to fill now: {parameter}\n"
-    text += "Which option is the value of this parameter?\n"
-    for number, option in enumerate(options, start=1):
-        text += f"{number}. {option}\n"
-    text += f"{len(options) + 1}. None of the above\n"
-    text += "Answer: "
-    return text
-
-
-def third_prompt_builder(user_prompt: str, function: FunctionDefinition,
-                         parameter: str, parameter_type: str) -> str:
-    """Prompt for writing one value from scratch (fallback)."""
-    text = f"User request: {user_prompt}\n"
-    text += f"Function: {function.name} - {function.description}\n"
-    text += f"Value of parameter {parameter} ({parameter_type}): "
-    if parameter_type == "string":
-        """ That open quote tells the model that what comes next is the
-        contents of a string """
-        text += '"'
-    return text
+def arguments_prompt_builder(prompt: Prompt, f: FunctionDefinition) -> str:
+    """Prompt whose natural continuation is the JSON arguments object."""
+    params = ", ".join(f"{n} ({d['type']})" for n, d in f.parameters.items())
+    arguments_prompt = INSTRUCTIONS + EXAMPLES
+    arguments_prompt += f"Function: {f.name}\n"
+    arguments_prompt += f"Description: {f.description}\n"
+    arguments_prompt += f"Parameters: {params}\n"
+    arguments_prompt += f"Request: {prompt.prompt}\n"
+    arguments_prompt += "Arguments:"
+    return arguments_prompt

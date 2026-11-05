@@ -5,9 +5,13 @@ import argparse
 from typing import Type
 from pydantic import BaseModel, ValidationError, create_model
 from llm_sdk import Small_LLM_Model
-from .argument_extraction_helpers import remove_used, extract_candidates, model_picks
+from .numeric_values_generators import (
+    extract_candidates, remove_used,
+    choose_option, generate_number, to_number,
+)
+from .other_values_generators import generate_string, walk_string
 from .loaders import load_function_defs, load_prompt
-from .prompt_builders import prompt_builder, second_prompt_builder
+from .prompt_builders import prompt_builder, arguments_prompt_builder
 from .classes import FunctionDefinition, Prompt
 
 
@@ -70,29 +74,34 @@ def response_function(input_text: str,
 
 
 def response_arguments(prompt: Prompt, model: Small_LLM_Model,
-                       function: FunctionDefinition, vocab: list[str],
-                       candidates_by_parameter: dict[str, list[str]]
-                    ) -> dict:
-    arguments = {}
-    used = []
-    for name, details in function.parameters.items():
-        parameter_type = details["type"]
-        candidates = candidates_by_parameter.get(name, [])
-        options = remove_used(candidates, used)
-        # determines whether an option was chosen
-        value = None
-        if options:
-            second_prompt = second_prompt_builder(prompt, function, name, options)
-            print(second_prompt)
-            # returns an int
-            choice = model_picks(second_prompt, model, vocab, len(options) + 1)
-            if choice <= len(options):
-                value = options[choice - 1]
-            if value is None:
-                third_prompt = third_prompt_builder(prompt, function, name,
-                                          parameter_type)
-              
-    return argument
+                       function: FunctionDefinition,
+                       vocab: list[str]) -> dict[str, Any]:
+    """Fill every parameter of the function, in definition order."""
+    header = arguments_prompt_builder(prompt, function)
+    input_ids = model.encode(header).flatten().tolist()
+    arguments: dict[str, Any] = {}
+    used: list[str] = []
+    for index, (name, details) in enumerate(function.parameters.items()):
+        kind = details["type"]
+        lead = " {" if index == 0 else ", "
+        opening = '"' if kind == "string" else ""
+        fragment = f"{lead}{json.dumps(name)}: {opening}"
+        input_ids += model.encode(fragment).flatten().tolist()
+        if kind == "number":
+            options = remove_used(extract_candidates(prompt.prompt, kind),
+                                  used)
+            if options:
+                text = choose_option(model, vocab, input_ids, options)
+            else:
+                text = generate_number(model, vocab, input_ids)
+            used.append(text)
+            arguments[name] = to_number(text)
+        elif kind == "string":
+            arguments[name] = generate_string(model, vocab, input_ids)
+            input_ids += model.encode('"').flatten().tolist()
+        else:
+            raise ValueError(f"Type not supported yet: {kind}")
+    return arguments
 
 
 def create_dynamic_model(f: FunctionDefinition) -> Type[BaseModel]:
@@ -122,12 +131,8 @@ def main() -> None:
         chosen_function = response_function(input_prompt, model, valid_defs, vocab)
         for f in functions:
             if f.name == chosen_function:
-                candidates_by_parameter = {}
-                for name, p_type in f.parameters.items():
-                    candidates = extract_candidates(prompt.prompt, p_type["type"])
-                    candidates_by_parameter[name] = candidates
-                arguments = response_arguments(prompt, model, f,
-                                       vocab, candidates_by_parameter)
+                arguments = response_arguments(prompt, model, f, vocab)
+                print(prompt.prompt, "->", f.name, arguments)
     """            
                 print(chosen_arguments)
                 ClassCreated = create_dynamic_model(f)
