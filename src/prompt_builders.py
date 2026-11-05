@@ -9,7 +9,7 @@ INSTRUCTIONS = (
     "that matches what the request describes. "
     "Do not copy the matched text itself.\n"
     "- If a parameter is the replacement, write only the replacement text, "
-    "with no extra spaces.\n"
+    "with no extra trailing or leading spaces.\n"
     "- A value starts right after the opening quote.\n\n"
 )
 

@@ -28,6 +28,7 @@ def choose_constrained_token(scores: list[float], allowed_ids: list[int]) -> int
     logits[~allowed_mask] = -np.inf
     return int(np.argmax(logits))
 
+
 def is_number_prefix(text: str) -> bool:
     """True if text could still grow into a valid JSON number."""
     return NUM_PREFIX.fullmatch(text) is not None
@@ -121,6 +122,8 @@ def generate_string(model, vocab, input_ids) -> str:
         counts[best] = counts.get(best, 0) + 1
         input_ids.append(best)
     try:
-        return json.loads('"' + raw + '"')
+        value = json.loads('"' + raw + '"')
     except ValueError:
-        return raw
+        value =  raw
+
+    return value.strip()
