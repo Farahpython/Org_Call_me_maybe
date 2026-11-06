@@ -1,18 +1,21 @@
 import json
 from .classes import Prompt, FunctionDefinition
 
+
 INSTRUCTIONS = (
     "Fill in the arguments of a function call from the user's request.\n"
     "Rules:\n"
     "- Copy names, words and numbers exactly as written in the request.\n"
     "- If a parameter is a regex or pattern, write a regular expression "
     "that matches what the request describes. "
+    "Regex arguments must be a complete, valid pattern.\n"
     "Do not copy the matched text itself.\n"
     "- If a parameter is the replacement, write only the replacement text, "
     "with no extra trailing or leading spaces.\n"
     "- A value starts right after the opening quote.\n\n"
 )
 
+"""
 EXAMPLES = (
     "Function: fn_repeat_text\n"
     "Description: Repeat a text several times.\n"
@@ -46,7 +49,7 @@ EXAMPLES = (
     'Arguments: {"text": "zebra fox", "pattern": "[xz]", "new": "_"}\n'
     "\n"
 )
-
+"""
 
 def prompt_builder(prompt: Prompt, defs: list[FunctionDefinition]) -> str:
     """
@@ -65,8 +68,8 @@ def prompt_builder(prompt: Prompt, defs: list[FunctionDefinition]) -> str:
 def arguments_prompt_builder(prompt: Prompt, f: FunctionDefinition) -> str:
     """Prompt whose natural continuation is the JSON arguments object."""
     params = ", ".join(f"{n} ({d['type']})" for n, d in f.parameters.items())
-    arguments_prompt = INSTRUCTIONS + EXAMPLES
-    arguments_prompt += f"Function: {f.name}\n"
+    arguments_prompt = INSTRUCTIONS # + EXAMPLES
+    arguments_prompt = f"Function: {f.name}\n"
     arguments_prompt += f"Description: {f.description}\n"
     arguments_prompt += f"Parameters: {params}\n"
     arguments_prompt += f"Request: {prompt.prompt}\n"

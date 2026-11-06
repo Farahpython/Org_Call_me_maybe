@@ -1,7 +1,8 @@
+import argparse
 import re
 import sys
 import json
-import argparse
+from typing import Any
 from typing import Type
 from pydantic import BaseModel, ValidationError, create_model
 from llm_sdk import Small_LLM_Model
@@ -77,8 +78,8 @@ def response_arguments(prompt: Prompt, model: Small_LLM_Model,
                        function: FunctionDefinition,
                        vocab: list[str]) -> dict[str, Any]:
     """Fill every parameter of the function, in definition order."""
-    header = arguments_prompt_builder(prompt, function)
-    input_ids = model.encode(header).flatten().tolist()
+    arguments_prompt = arguments_prompt_builder(prompt, function)
+    input_ids = model.encode(arguments_prompt).flatten().tolist()
     arguments: dict[str, Any] = {}
     used: list[str] = []
     for index, (name, details) in enumerate(function.parameters.items()):

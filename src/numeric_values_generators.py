@@ -1,4 +1,5 @@
 import re
+from llm_sdk import Small_LLM_Model
 from .other_values_generators import choose_constrained_token
 
 def extract_candidates(prompt: str, parameter_type: str) -> list[str]:
