@@ -7,7 +7,7 @@ NUM_PREFIX = re.compile(r"-?(?:(?:0|[1-9]\d*)(?:\.\d*)?)?")
 NUM_DONE   = re.compile(r"-?(?:0|[1-9]\d*)(?:\.\d+)?")
 NORMAL = 0
 ESCAPE = 1
-REPEAT_PENALTY = 1.0
+REPEAT_PENALTY = 0
 _string_cache: dict[int, tuple[list[int], set[int]]] = {}
 
 
@@ -27,16 +27,6 @@ def choose_constrained_token(scores: list[float], allowed_ids: list[int]) -> int
     allowed_mask[allowed_ids] = True
     logits[~allowed_mask] = -np.inf
     return int(np.argmax(logits))
-
-
-def is_number_prefix(text: str) -> bool:
-    """True if text could still grow into a valid JSON number."""
-    return NUM_PREFIX.fullmatch(text) is not None
-
-
-def is_number_complete(text: str) -> bool:
-    """True if text is a finished, valid JSON number."""
-    return NUM_DONE.fullmatch(text) is not None
 
 
 def walk_string(text: str, state: int) -> int | None:
@@ -75,31 +65,6 @@ def string_options(vocab: list[str], state: int) -> tuple[list[int], set[int]]:
     return _string_cache[state]
 
 
-def generate_number(model: Small_LLM_Model, vocab: list[str],
-                       input_ids: list[int]) -> float:
-    """Generate one number token by token, only allowing valid prefixes."""
-    text = ""
-    stop_ids = [i for i, t in enumerate(vocab) if t in (",", "}")]
-    for _ in range(20):
-        scores = model.get_logits_from_input_ids(input_ids)
-        allowed = []
-        for i, token in enumerate(vocab):
-            if token and is_number_prefix(text + token):
-                allowed.append(i)
-        if is_number_complete(text):
-            allowed += stop_ids
-        if not allowed:
-            break
-        best = choose_constrained_token(scores, allowed)
-        if best in stop_ids:
-            break
-        text += vocab[best]
-        input_ids.append(best)
-    if text in ("", "-"):
-        text = "0"
-    return float(text)
-
-
 def generate_string(model, vocab, input_ids) -> str:
     raw = ""
     state = NORMAL
@@ -125,5 +90,4 @@ def generate_string(model, vocab, input_ids) -> str:
         value = json.loads('"' + raw + '"')
     except ValueError:
         value =  raw
-
     return value.strip()

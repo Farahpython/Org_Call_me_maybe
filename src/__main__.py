@@ -1,20 +1,20 @@
 import argparse
+import json
+import os
 import re
 import sys
-import json
 from typing import Any
 from typing import Type
 from pydantic import BaseModel, ValidationError, create_model
 from llm_sdk import Small_LLM_Model
 from .numeric_values_generators import (
     extract_candidates, remove_used,
-    choose_option, generate_number, to_number,
-)
+    choose_option, to_number)
 from .other_values_generators import generate_string, walk_string
 from .loaders import load_function_defs, load_prompt
 from .prompt_builders import prompt_builder, arguments_prompt_builder
 from .classes import FunctionDefinition, Prompt
-
+#from .regex_check import is_pattern_name, regex_problem
 
 type_mapping = {
     "integer": int,
@@ -82,26 +82,37 @@ def response_arguments(prompt: Prompt, model: Small_LLM_Model,
     input_ids = model.encode(arguments_prompt).flatten().tolist()
     arguments: dict[str, Any] = {}
     used: list[str] = []
+    strings: list[str] = []
     for index, (name, details) in enumerate(function.parameters.items()):
         kind = details["type"]
         lead = " {" if index == 0 else ", "
         opening = '"' if kind == "string" else ""
         fragment = f"{lead}{json.dumps(name)}: {opening}"
         input_ids += model.encode(fragment).flatten().tolist()
-        if kind == "number":
+        if kind in ("number", "integer"):
             options = remove_used(extract_candidates(prompt.prompt, kind),
                                   used)
             if options:
                 text = choose_option(model, vocab, input_ids, options)
+            """
             else:
+                # in case no candidates existed.
                 text = generate_number(model, vocab, input_ids)
+            """
             used.append(text)
             arguments[name] = to_number(text)
         elif kind == "string":
             arguments[name] = generate_string(model, vocab, input_ids)
+            """
+            if is_pattern_name(name):
+                source = strings[0] if strings else None
+                problem = regex_problem(value, source)
+                if problem:
+                    raise ValueError(f"{name} {value!r} {problem}")
+            strings.append(value)
+            arguments[name] = value
+            """
             input_ids += model.encode('"').flatten().tolist()
-        else:
-            raise ValueError(f"Type not supported yet: {kind}")
     return arguments
 
 
@@ -125,23 +136,33 @@ def main() -> None:
     model = Small_LLM_Model()
     vocab = build_vocab(model)
     valid_defs = []
+    results = []
     for f in functions:
         valid_defs.append(f.name)
     for prompt in prompts:
         input_prompt = prompt_builder(prompt, functions)
-        chosen_function = response_function(input_prompt, model, valid_defs, vocab)
+        chosen_function = response_function(input_prompt, model,
+                                            valid_defs, vocab)
         for f in functions:
             if f.name == chosen_function:
                 arguments = response_arguments(prompt, model, f, vocab)
-                print(prompt.prompt, "->", f.name, arguments)
-    """            
-                print(chosen_arguments)
-                ClassCreated = create_dynamic_model(f)
                 try:
-                    validated_arguements = ClassCreated(**chosen_arguments)
+                    create_dynamic_model(f)(**arguments)
                 except ValidationError as e:
-                    print("Invalid arguements: ", e)
-    """
+                    print("Invalid arguments: ", e.errors()[0]["msg"],
+                          file=sys.stderr)
+                print(prompt.prompt, "->", f.name, arguments)
+                results.append({"prompt": prompt.prompt,
+                                "name": f.name,
+                                "parameters": arguments})
+    try:
+        os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
+        with open(args.output, "w") as out:
+            json.dump(results, out, indent=2)
+    except OSError as e:
+        print("Could not write the output file:", e, file=sys.stderr)
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

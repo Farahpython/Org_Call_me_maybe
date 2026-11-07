@@ -3,14 +3,11 @@ from llm_sdk import Small_LLM_Model
 from .other_values_generators import choose_constrained_token
 
 def extract_candidates(prompt: str, parameter_type: str) -> list[str]:
-    """Pull possible values for a parameter type out of the request."""
+    """Pull possible values for a numeric parameter type out of the request."""
     if parameter_type == "integer":
         return re.findall(r"-?\d+", prompt)
     if parameter_type == "number":
         return re.findall(r"-?(?:\d*[.])?\d+", prompt)
-    if parameter_type == "string":
-        matches = re.findall(r"""(['"])(.*?)\1""", prompt)
-        return [match[1] for match in matches]
     return []
 
 
@@ -24,10 +21,7 @@ def remove_used(options: list[str], used: list[str]) -> list[str]:
 
 
 def to_number(text: str) -> int | float:
-    """A whole number becomes an int, anything with a dot a float."""
-    if "." in text:
         return float(text)
-    return int(text)
 
 
 def choose_option(model: Small_LLM_Model, vocab: list[str],
@@ -50,10 +44,9 @@ def choose_option(model: Small_LLM_Model, vocab: list[str],
         input_ids.append(best)
     return text
 
-
+"""
 def generate_number(model: Small_LLM_Model, vocab: list[str],
                     input_ids: list[int]) -> str:
-    """Fallback: write a number token by token, only valid prefixes."""
     text = ""
     stop_ids = [i for i, t in enumerate(vocab) if t in (",", "}")]
     for _ in range(20):
@@ -73,4 +66,4 @@ def generate_number(model: Small_LLM_Model, vocab: list[str],
         input_ids.append(best)
     if text in ("", "-"):
         text = "0"
-    return text
+    return text """
